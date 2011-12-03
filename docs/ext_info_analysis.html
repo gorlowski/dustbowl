@@ -1,0 +1,303 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01//EN">
+<html>
+<head>
+  <title>nokia ext_info.sys certificate db analysis</title>
+</head>
+<body>
+<div style='width: 50%; margin-left: 5%;'>
+<h2>analysis of nokia&#39;s ext_info.sys file format</h2>
+<p>
+  This is my analysis of nokia&#39;s ext_info.sys file format.  This is a
+  binary file format that the device uses to associate metadata with x509
+  certificates on (some?) S40 (and maybe also some S60?) mobile phones.
+</p>
+<p>
+  Below, you can see the original <code>ext_info.sys</code> that gets generated
+  by the mobile OS when I install my <code>dustbowl.cer</code> self-signed
+  certificate.  Below that is my modified ext_info.sys that was created by
+  running the alter_ext_info_file script in the dustbowl project against the
+  original <code>ext_info.sys</code> file. Because I only installed a single
+  certificate into the user certificates directory on the device, the entire
+  <code>ext_info.sys</code> file in these cases constitutes a single
+  certificate record. I highlighted the different sub-segments of the file
+  and included notes on the segments below the hexdumps.
+</p>
+</div>
+<div style='margin-left: 5%;'>
+<h3>Original ext_info.sys</h3>
+<div style="font-family:monospace">
+<table>
+<tr>
+<td>00000000</td>
+<td><span style=
+'background-color: #ffb2b2; font-weight: bold; text-decoration: underline'>
+80</span> <span style='background-color: #ffb2b2'>00 01 00 01 43 02
+10 00 00 14 00</span> <span style='background-color: #00FFFF'>02 dc
+60 c3</span></td>
+<td>|.....C........`.|</td>
+</tr>
+<tr>
+<td>00000010</td>
+<td><span style='background-color: #00FFFF'>db 27 38 5b 72 af 1e 8f
+00 a2 db 23 50 c7 ec 95</span></td>
+<td>|.'8[r......#P...|</td>
+</tr>
+<tr>
+<td>00000020</td>
+<td><span style='background-color: #CCCCCC'>00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 00</span></td>
+<td>|................|</td>
+</tr>
+<tr>
+<td>00000030</td>
+<td><span style='background-color: #CCCCCC'>00 00 00 00</span>
+<span style='background-color: #FF0000'>00 00 00 00 00 00 00 00 00
+00 00 00</span></td>
+<td>|................|</td>
+</tr>
+<tr>
+<td>00000040</td>
+<td><span style='background-color: #FF0000'>00 00 00 00 00 00 00
+00</span> <span style='background-color: #84f864'>d0 37 06 66 16 19
+4b bc</span></td>
+<td>|.........7.f..K.|</td>
+</tr>
+<tr>
+<td>00000050</td>
+<td><span style='background-color: #84f864'>04 94 ee 1b 3a e2 39 15
+93 cc 39 78</span> <span style='background-color: #f864f4'>00 00 00
+00</span></td>
+<td>|....:.9...9x....|</td>
+</tr>
+<tr>
+<td>00000060</td>
+<td><span style='background-color: #f864f4'>00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 00</span></td>
+<td>|................|</td>
+</tr>
+<tr>
+<td>00000070</td>
+<td><span style=
+'background-color: #eeab55; font-weight: bold; text-decoration: underline'>
+0c</span> <span style='background-color: #eeab55'>64 75 73 74 62 6f
+77 6c 2e 63 65 72</span> 00 <span style=
+'background-color: #ffff00'>00 55</span></td>
+<td>|.dustbowl.cer..U|</td>
+</tr>
+<tr>
+<td>00000080</td>
+<td></td>
+<td></td>
+</tr>
+</table>
+</div>
+<h3>Modified ext_info.sys</h3>
+<div style='font-family: monospace'>
+<table>
+<tr>
+<td>00000000</td>
+<td><span style=
+'background-color: #ffb2b2; font-weight: bold; text-decoration: underline'>
+98</span> <span style='background-color: #ffb2b2'>00 00 00 01 41 02
+10 14 00 14 14</span> <span style='background-color: #00FFFF'>02 dc
+60 c3</span></td>
+<td>|.....A........`.|</td>
+</tr>
+<tr>
+<td>00000010</td>
+<td><span style='background-color: #00FFFF'>db 27 38 5b 72 af 1e 8f
+00 a2 db 23 50 c7 ec 95</span></td>
+<td>|.'8[r......#P...|</td>
+</tr>
+<tr>
+<td>00000020</td>
+<td><span style='background-color: #CCCCCC'>00 00 00 00 00 00 00 00
+00 00 00 00 00 00 00 00</span></td>
+<td>|................|</td>
+</tr>
+<tr>
+<td>00000030</td>
+<td><span style='background-color: #CCCCCC'>00 00 00 00</span>
+<span style='background-color: #FF0000'>00 00 00 00 00 00 00 00 00
+00 00 00</span></td>
+<td>|................|</td>
+</tr>
+<tr>
+<td>00000040</td>
+<td><span style='background-color: #FF0000'>00 00 00 00 00 00 00
+00</span> <span style='background-color: #84f864'>d0 37 06 66 16 19
+4b bc</span></td>
+<td>|.........7.f..K.|</td>
+</tr>
+<tr>
+<td>00000050</td>
+<td><span style='background-color: #84f864'>04 94 ee 1b 3a e2 39 15
+93 cc 39 78</span> <span style='background-color: #f864f4'>d0 37 06
+66</span></td>
+<td>|....:.9...9x.7.f|</td>
+</tr>
+<tr>
+<td>00000060</td>
+<td><span style='background-color: #f864f4'>16 19 4b bc 04 94 ee 1b
+3a e2 39 15 93 cc 39 78</span></td>
+<td>|..K.....:.9...9x|</td>
+</tr>
+<tr>
+<td>00000070</td>
+<td><span style=
+'background-color: #eeab55; font-weight: bold; text-decoration: underline'>
+0c</span> <span style='background-color: #eeab55'>64 75 73 74 62 6f
+77 6c 2e 63 65 72</span> 00 <span style=
+'background-color: #ffff00; font-weight: bold; text-decoration: underline'>
+18</span> <span style='background-color: #ffff00'>06</span></td>
+<td>|.dustbowl.cer...|</td>
+</tr>
+<tr>
+<td>00000080</td>
+<td><span style='background-color: #ffff00'>08 2b 06 01 05 05 07 03
+03 06 0c 2b 06 01 04 01</span></td>
+<td>|.+.........+....|</td>
+</tr>
+<tr>
+<td>00000090</td>
+<td><span style='background-color: #ffff00'>2a 02 6e 02 02 02
+01</span> 00</td>
+<td>|*.n.....|</td>
+</tr>
+<tr>
+<td>00000098</td>
+<td></td>
+<td></td>
+</tr>
+</table>
+</div>
+</div>
+<div style='width: 50%; margin-left: 5%;'>
+<h3>Notes:</h3>
+<ul>
+<li style='margin-bottom: 1em;'>
+<div><span style=
+'font-weight: bold; text-decoration: underline'>Bold+Underline</span>
+indicates a record-length prefix character.</div>
+<div>For the beginning of the record, this is the length of the
+entire record.</div>
+<div>For the certificate filename sub-record, this is the length of
+the filename.</div>
+<div>For the permission section, this is the length of the
+permission section.</div>
+</li>
+<li style='margin-bottom: 1em;'>
+<div><span style='background-color: #ffb2b2'>Record Magic Number
+Prefix</span></div>
+<p>I am not sure what this magic number byte sequence is supposed
+to represent. After the record length byte, all certificates in the
+system ext_info.sys file (<code>.../auth/ext_info.sys</code>) begin
+with the 11-byte sequence in my modified ext_info.sys file. I
+believe it is necessary to modify these 11 bytes to this constant
+magic number byte sequence.</p>
+</li>
+<li style='margin-bottom: 1em;'>
+<div><span style='background-color: #00FFFF'>SHA1 Fingerprint of
+the Key</span></div>
+<p>This is always just the sha1 fingerprint of the key (this can be
+obtained by running sha1sum on the DER-formatted cer file).
+<strong>Do not change these bytes.</strong></p>
+</li>
+<li style='margin-bottom: 1em;'>
+<div><span style='background-color: #CCCCCC'>X509v3 Auth Key
+Identifier</span></div>
+<p>Note that I may be mixing up the Auth Key Identifier and the
+Subject Key Identifier segments. I cannot really tell because for a
+single-link cert chain, they will be equivalent. In any case, they
+are inter-dependent for the generation of this byte sequence. If
+<code>authorityKeyIdentifier</code> is present in the x509 v3 extension
+section then both sections are not-blank. If it is absent then both
+get set to all zeros (40 consecutive zeros). It is OK to omit Auth
+Key Identifier from your certificate by omitting an
+<code>authorityKeyIdentifier</code> entry in the <code>openssl.conf</code>
+file used to generate the certificate. <strong>Do not change these
+bytes.</strong></p>
+</li>
+<li style='margin-bottom: 1em;'>
+<div><span style='background-color: #FF0000'>X509v3 Subject Key
+Identifier</span></div>
+<p>Note I may be mixing up the Auth Key Identifier and the Subject
+Key Identifier segments. As stated above, if either the auth key or
+subject key identifier is undefined in your certificate, this will
+be all zeros. Having said that, I defined subject key identifier in
+my certificates because it was defined in the root certificates
+preinstalled on the phone. So do specify
+<code>subjectKeyIdentifier=hash</code> in the openssl.conf that you use
+to generate your certificate. <strong>Do not change these
+bytes.</strong></p>
+</li>
+<li style='margin-bottom: 1em;'>
+<div><span style='background-color: #84f864'>sha1 hash of (part of)
+certificate subject?</span></div>
+<p>This appears to be another sha1 hash. I believe that this is
+derived from elements of the subject of the cert, but maybe only
+the CN of the cert subject is used? When the cert is determined to
+be invalid, the generated value gets set to all zeros. When the
+cert is recognized as valid is recognized as valid?) then this will
+be non-zero. I noticed that this value changes when you generate a
+cert with a different CN, and I played around with taking a sha1 of
+various parts of the subject segment of the certificate, but I
+could not figure out exactly what is hashed in this sha1 (if it is
+a sha1). It could be an HMAC auth tag using sha1 plus some secret
+key? More likely, it could be a sha1 of just part of the subject
+(maybe just the beginning or just the end N bytes where N is evenly
+divisible by the block size of sha1 -- 64 bits?). In any case,
+<strong>you do not need to change this segment</strong>.</p>
+</li>
+<li style='margin-bottom: 1em;'>
+<div><span style='background-color: #f864f4'>sha1 hash of (part of)
+certificate issuer?</span></div>
+<p>I believe this is derived from elements of the issuer of the
+cert. For a basic single-link-in-the-chain self signed cert, issuer
+== subject, and you should copy the bytes from the subject section
+(the previous 20 bytes) to this section.</p>
+</li>
+<li style='margin-bottom: 1em;'>
+<div><span style='background-color: #eeab55'>Name of the cert
+file</span></div>
+<p>This is the name of the certificate file, prefixed by a byte
+indicating the length of the filename. It is always followed by a
+00 byte. <strong>Do not change these bytes.</strong></p>
+</li>
+<li style='margin-bottom: 1em;'>
+<div><span style='background-color: #FFFF00'>Certificate
+Permissions</span></div>
+<p>If you look at the <code>ext_info.sys</code> file in the directory
+with the root certificates that are preinstalled on the phone and
+compare the permissions section to the permissions associated with
+each certificate when you browse (in the phone UI) to:</p>
+<p><code>Settings -&gt; Security -&gt; Authority Certificates -&gt;
+[some cert] -&gt; Select Use</code></p>
+<p>You will see that there is a magic number sequence associated
+with each of the 3 certificate permissions. I am including what I
+observe as the magic number that enables each segment:</p>
+<dl>
+<dt>App Signing</dt>
+<dd>06 08 2b 06 01 05 05 07 03 03</dd>
+<dt>Cross Certification</dt>
+<dd>06 0a 2b 06 01 04 01 5e 01 31 04 01</dd>
+<dt>Server Authentication</dt>
+<dd>06 08 2b 06 01 05 05 07 03 01</dd>
+</dl>
+<p>You will noticate that my modified permissions section ends
+in</p>
+<p><code>06 0c 2b 06 01 04 01 2a 02 6e 02 02 02 01</code></p>
+<p>I do not know what this is for exactly, but this is included in
+the permissions section of the preinstalled T-Mobile certificates
+on my phone that are used to sign the signed MIDlets that are
+preinstalled on my phone. I believe this sequence specifies that
+apps signed with this certificate should run in the operator
+protection domain (?)</p>
+</li>
+<li style='margin-bottom: 1em;'>Note also that the the length in
+bytes of the total certificate record must be zero-padded to a
+length that is evenly divisible by 4.</li>
+</ul>
+</div>
+</body>
+</html>
