@@ -1,0 +1,246 @@
+#!/usr/bin/env python
+
+#-------------------------------------------------------------
+#
+#   alter_ext_info_file
+#
+#   Copyright (c) 2011-12-02 Greg Orlowski. All Rights Reserved
+#   License: BSD -- See LICENSE file
+#
+#   This script will modify an ext_info.sys file generated on some nokia
+#   s40 (and maybe s60 and other) phones to enable support for code-signing
+#   with a user-supplied DER-formatted x509 certificate -- possibly a 
+#   self-signed x509 cert.
+#
+#   NOTE: this only works for ext_info.sys files that contain a single record.
+#   I could update it in the future to support files with multiple records, but
+#   I have no immediate need for > 1 user cert.
+#
+#   USE THIS SCRIPT WITH CAUTION. DO NOT USE THIS ON THE ext_info.sys file that
+#   contains the core certificates preinstalled on your phone; doing so could
+#   render your phone unusable. This is only intended to be used on the
+#   ext_info.sys in the user certificates directory.
+#
+#   TODO:
+#       - add options to use alternative permission arrays. This might be
+#         necessary with other firmwares (not TMo-USA firmware)
+#
+#-------------------------------------------------------------
+
+import sys
+import re
+import os
+import string
+
+def usage():
+    script_name = os.path.basename(sys.argv[0])
+    print("""
+
+        Usage: %s EXT_FILE NEW_EXT_FILE CERT_FILENAME
+
+        Generate a [NEW_EXT_FILE] from a nokia ext_info.sys [EXT_FILE] file to
+        add code-signing permission to a user certificate record.
+
+        CERT_FILENAME must be the name of the certificate file, as specified
+        in the ext_info.sys file. This is the name of the DER-formatted x509
+        certificate that you copied to your phone's user cert directory.
+
+    """ % (script_name))
+
+class ExtInfoFile:
+    def __init__(self, ext_info_file, cert_filename):
+        self.ext_info_file = ext_info_file
+        self.cert_filename = cert_filename
+        ext_data = None
+        with open(ext_info_file, 'r') as f: ext_data = f.read()
+
+        self.validate_ext_info_data(ext_data)
+
+        self._cert_fname_idx = self.cert_fname_idx(ext_data)
+        self.ext_data = [c for c in ext_data]   # convert to list for easy mutable access
+
+        r = re.compile('\s')
+        self.printable_chars = set([c for c in string.printable if not r.match(c)])
+
+    @staticmethod
+    def to_hex(c):
+        return "%02x" % ord(c)
+
+    ''' Get the index of the cert filename section '''
+    def cert_fname_idx(self, ext_data):
+        s = "%c%s" % (len(self.cert_filename), self.cert_filename)
+        return ext_data.find(s)
+
+    def validate_ext_info_data(self, ext_data):
+        record_len = ord(ext_data[0]) 
+        if record_len != len(ext_data):
+            print '''
+                Invalid source file. File should contain exactly 1 record.
+                File data length [%d] does not match declared record data
+                length [%d]
+            ''' % ( len(ext_data), record_len )
+            sys.exit(1)
+
+    def printable_char(self,c):
+        if c in self.printable_chars:
+            return c
+        return '.'
+
+    def is_printable(c):
+        return true
+
+    def printable_row_block(self, a):
+        return "\t%s" % ''.join(a)
+
+    def dump_hex(self):
+        i = 0
+        row_chars = []
+        while i < len(self.ext_data):
+            c = self.ext_data[i]
+            if i > 0 and i % 16 != 0 and i % 4 == 0:
+                print ' ',
+            print( self.to_hex(c) ),
+            row_chars.append(self.printable_char(c))
+            i+=1
+            if i>0 and i % 16 == 0:
+                print self.printable_row_block(row_chars)
+                row_chars = []
+        if len(row_chars) > 0:
+            while i % 16 != 0:
+                print '  ',
+                if i > 0 and i % 4 == 0:
+                    print ' ',
+                i+=1
+            print self.printable_row_block(row_chars)
+        print
+
+    '''
+        Some trusted third party certs installed on nokia phones support
+        code-signing, cross-domain, and server auth. This is the permission
+        byte array used by those certs. It did not work with Tmo USA in my
+        tests, but it may work on some devices/networks.
+    '''
+    def permission_magic_num_alt(self):
+        return [ 0x06, 0x08, 0x2b, 0x06, 0x01, 0x05, 0x05, 0x07, 0x03, 0x03,
+                0x06, 0x0a, 0x2b, 0x06, 0x01, 0x04, 0x01, 0x5e, 0x01, 0x31, 0x04, 0x01,
+                0x06, 0x08, 0x2b, 0x06, 0x01, 0x05, 0x05, 0x07, 0x03, 0x01]
+
+    '''
+        According to:
+            http://www.developer.nokia.com/Community/Wiki/T-Mobile_U.S._Java_security_domains
+
+        T-Mobile USA does not support running MIDlets under the "trusted
+        third party" protection domain. I have not verified that the core
+        trusted 3rd-party certs installed on phones OOTB (Verisign, Thawte, Go
+        Daddy, etc) do not work for code-signing on Tmo. However, using
+        permission_magic_num_3rd_party_code_signing_cert, does not work on Tmo.
+        The only permission byte magic number array that seems to work on Tmo
+        is this one, which is used by the Tmo manufacturer certs.
+    '''
+    def permission_magic_num_tmo(self):
+        return [0x06, 0x08, 0x2b, 0x06, 0x01, 0x05, 0x05, 0x07, 0x03, 0x03, 
+            0x06, 0x0c, 0x2b, 0x06, 0x01, 0x04, 0x01, 0x2a, 0x02, 0x6e, 0x02, 0x02, 0x02, 0x01]
+
+    ''' 
+        I believe this permission byte array will grant code signing
+        permissions. It should work on device firmwares that support running
+        MIDlets under a "trusted third party" protection domain.
+    '''
+    def permission_magic_num_3rd_party_code_signing_cert(self):
+        return [0x06, 0x08, 0x2b, 0x06, 0x01, 0x05, 0x05, 0x07, 0x03, 0x03]
+
+    def permission_section_idx(self):
+        return self._cert_fname_idx + len(self.cert_filename) + 2
+
+    '''
+        All device-installed certs seem to have this header_magic_num starting
+        from byte 0x01 (zero-indexed) of the file. This is immediately before
+        the md5 hash of the key and immediately after the first byte, which is
+        the record length.
+    '''
+    def header_magic_num(self):
+        return [0x00, 0x00, 0x00, 0x01, 0x41, 0x02, 0x10, 0x14, 0x00, 0x14, 0x14]
+
+    ''' An alternative header magic number to try on some devices '''
+    def header_magic_num_alt(self):
+        return [0x00, 0x01, 0x00, 0x01, 0x41, 0x02, 0x10, 0x14, 0x00, 0x14, 0x14]
+
+    def write_header_magic_number(self):
+        i=0
+        header_magic_num = self.header_magic_num()
+        while i<len(header_magic_num):
+            self.ext_data[i+1] = chr(header_magic_num[i])
+            i+=1
+
+    def update_permission_magic_number(self):
+        data_idx = self.permission_section_idx()
+        magic_number = self.permission_magic_num_tmo()
+
+        # The first byte of the permission sub-record is always the length of
+        # the record:
+        magic_number.insert(0, len(magic_number))
+        magic_num_idx = 0
+        while magic_num_idx < len(magic_number):
+            if data_idx < len(self.ext_data):
+                self.ext_data[data_idx] = chr(magic_number[magic_num_idx])
+            else:
+                self.ext_data.append(chr(magic_number[magic_num_idx]))
+            magic_num_idx+=1
+            data_idx+=1
+
+    '''
+        The total record length is always null-byte padded to a length that is
+        evenly divisible by 4. The records also always seem to always have at
+        least 1 trailing null-pad byte (?).
+    '''
+    def zero_pad(self):
+        i=0
+        while i<1 or len(self.ext_data) % 4 != 0:
+            self.ext_data.append(chr(0))
+            i+=1
+
+    def update_record_len(self):
+        self.ext_data[0] = chr(len(self.ext_data))
+
+    '''
+        Validated code-signing certs in the ext_info.sys file format seem to
+        repeat the 20 bytes before the 20 bytes before the start of the cert
+        filename record twice. When a fresh ext_info.sys gets generated by
+        the device, the 20 bytes before the cert filename record are all
+        null-bytes. This may or may not be necessary, but to conform to
+        other records, ensure that the 20 bytes repeat.
+    '''
+    def plug_prename_zeros(self):
+        i = self._cert_fname_idx - 20
+        while i < self._cert_fname_idx:
+            self.ext_data[i] = self.ext_data[i-20]
+            i+=1
+
+    def update_for_code_signing(self):
+        self.write_header_magic_number()
+        self.update_permission_magic_number()
+        self.zero_pad()
+        self.update_record_len()
+        self.plug_prename_zeros()
+
+    def data(self):
+        return ''.join(self.ext_data)
+
+if __name__ == "__main__":
+    if len(sys.argv) != 4 or not os.path.exists(sys.argv[1]):
+        usage()
+        sys.exit(0)
+
+    (ext_info_filename, code_signing_ext_filename, cert_filename) = sys.argv[1:4]
+
+    ext_info = ExtInfoFile(ext_info_filename, cert_filename)
+    print '\n-------- %s ---------\n' % ext_info_filename
+    ext_info.dump_hex()
+
+    print '\n-------- %s ---------\n' % code_signing_ext_filename
+    ext_info.update_for_code_signing()
+    ext_info.dump_hex()
+
+    with open(code_signing_ext_filename, 'w') as f: 
+        f.write(ext_info.data())
+

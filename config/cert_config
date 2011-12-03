@@ -1,0 +1,79 @@
+#-------------------------------------------------------------
+#
+#   This is a configuration file intended to be "sourced"
+#   by gen_ca_v3_cert.sh. Use this as a template, copy it,
+#   edit it, and specify your customized version as a parameter
+#   to gen_ca_v3_cert.sh
+#
+#-------------------------------------------------------------
+
+### BEGIN CONFIGURATION SECTION
+
+### This will be, by default, the prefix of your certificate
+# and private key files, the CN of your cert, and the alias
+# of your cert in the generated java code-signing keystore.
+# The name is arbitrary. Set it to whatever you like, but it
+# is probably best to not use anything other than \w characters
+# ([a-zA-Z0-9_])
+root_ca_alias=dustbowl
+
+### Default values for the subject: shoutout to Chi-town
+cn="$root_ca_alias"
+country=US
+
+### I believe the x509 standard is to use a full state name
+# (e.g., Illinois) rather than a 2-letter abbreviation (e.g., IL),
+# although the core T-Mobile cert on nokia phones uses the 2-letter
+# "WA" abbreviation
+state=Illinois
+city=Chicago
+organization="$cn"
+
+### This could be any value. The core Tmo cert on my phone uses:
+#ou="Product Development/description=Nokia_5130_FullTrust"
+ou="$cn"
+
+### You can reorder the elements of the subject if you want. The order
+# should not be important, but some devices may expect a certain order
+# or may expect certain elements to be present or absent:
+
+### You must always specify a CN
+subj="/CN=${cn}"
+[ -n "$country" ] && subj="${subj}/C=${country}"
+[ -n "$state" ] && subj="${subj}/ST=${state}"
+[ -n "$city" ] && subj="${subj}/L=${city}"
+[ -n "$organization" ] && subj="${subj}/O=${organization}"
+[ -n "$ou" ] && subj="${subj}/OU=${ou}"
+
+### The format is the format used by your system's date command to change
+# the date. On my debian GNU/linux system, this is MMDDhhmm[[CC]YY][.ss]
+# So, in this example, I set it to 2005-04-07 16:03
+cert_start_date=040716032005
+
+PRIVATE_KEY_PEM="${root_ca_alias}_private_key.pem"
+CERT_PEM="${root_ca_alias}.pem"
+CERT_DER="${root_ca_alias}.cer"
+P12_STORE="${root_ca_alias}.p12"
+CODE_SIGNING_JKS="${root_ca_alias}.jks"
+
+### TMo root certs use 1024-bit keys. This is fine for personal use. Setting
+# this to 2048 would probably also work on most devices.
+KEY_LEN=1024
+
+### serial_number is the serial number of your certificate. 
+### TMo always uses 0x0 as a ser number. The number can be anything,
+#serial_number='0x42a1abde'
+serial_number='0x0'
+
+# Tmo sets their certs to be valid for 10 years, but longer values should be
+# fine:
+num_days_valid=$((365*15))
+
+#
+#   These are the passwords for your java keystore and the private key,
+#   respectively.
+#
+export KEYSTORE_PASS='mys3cr3tk3st0r3p@ss'
+export KEY_PASS='mypr1v@t3k3yp@ss'
+
+### END CONFIGURATION SECTION

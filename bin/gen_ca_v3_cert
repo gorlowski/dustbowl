@@ -1,0 +1,135 @@
+#!/bin/sh
+
+###################################################################
+#
+#   gen_ca_v3_cert       2011-11-24     
+#
+#   License: Public Domain
+#
+#   The x509 v3 specification supports associating metadata extensions
+#   with x509 certificates. There are a few standard extensions used to
+#   designate that a cert is valid for use as a code-signing cert,
+#   a server CA cert, etc. 
+#
+#   Nokia phones (and maybe others) do not accept self-signed x509 v3
+#   certificates for code signing unless they have the CA extension
+#   in the cert file. We should set the v3 basic constraints to:
+#
+#       X509v3 Basic Constraints: critical
+#                CA:TRUE
+#
+#   NOTE: Executing this script requires sudo rights to run both
+#   date and hwclock. This is so we can back-date the start date
+#   of our certificate. It is possible for phones to have their
+#   time reset to a past date when the battery is removed or gets
+#   completely discharged. If the phone system time is before
+#   the certificate start time then the certificate will not be
+#   deemed valid. As a convenience, we back-date the certificate
+#   to allow for some leeway with dates.
+#
+#   TODO: create a getopt option to enable/disable backdating.
+#   also create options for the root ca alias and passwords.
+#   
+###################################################################
+
+### Exit on any errors
+set -e
+
+cert_config_file="$1"
+openssl_conf_file="$2"
+dest_dir="$3"
+
+usage() {
+    script_name=`basename $0`
+    cat <<END_HERE
+
+    Usage: $script_name <CERT_CONFIG_FILE> <OPENSSL_CFG_FILE> [DEST_DIR]
+
+END_HERE
+}
+
+if [ ! -f "$openssl_conf_file" ]; then
+    usage
+    exit 0
+fi
+
+if [ -n "$dest_dir" ]; then
+    if [ ! -d "$dest_dir" ]; then
+        echo "Error. Specified DEST_DIR is not a directory: $dest_dir"
+        exit 1
+    fi
+else
+    dest_dir='.'
+fi
+
+if [ ! -f "$cert_config_file" ] || [ ! -f "$openssl_conf_file" ]; then
+    usage
+    exit 0
+fi
+
+if [ "`basename $cert_config_file`" = "$cert_config_file" ]; then
+    cert_config_file="$PWD/$cert_config_file"
+fi
+
+### Source the configuration file
+. "$cert_config_file"
+
+### Only backdate the certificate if we set a cert start date:
+if [ -n "$cert_start_date" ]; then
+    sudo /bin/date $cert_start_date
+fi
+
+### private key
+openssl genrsa -des -out "$dest_dir/$PRIVATE_KEY_PEM" -passout env:KEY_PASS $KEY_LEN
+
+### create a self-signed x509 cert. This must be classified as a CA. We do
+# this by enabling the extensions defined in the v3_ca section of our
+# openssl config file:
+openssl req -new -x509 \
+    -batch -subj "$subj" \
+    -key "$dest_dir/$PRIVATE_KEY_PEM" -keyform PEM \
+    -days $num_days_valid \
+    -config "$openssl_conf_file" \
+    -set_serial "$serial_number" \
+    -passin env:KEY_PASS \
+    -extensions v3_ca \
+    -outform DER \
+    -out "$dest_dir/$CERT_DER"
+
+# Verify purpose and text
+# openssl x509 -in "$CERT_DER" -inform DER -noout -purpose
+# openssl x509 -in "$CERT_DER" -inform DER -noout -text
+
+### I think pkcs12 requires the cert to be in PEM format (?) Convert from DER to PEM
+openssl x509 -inform DER -in "$dest_dir/$CERT_DER" -outform PEM -out "$dest_dir/$CERT_PEM"
+
+### Note that pkcs12 keystores only use a single password. It is not like a jks with
+# a keypass and a storepass. The store pass *IS* the pass of the private key
+openssl pkcs12 -export \
+    -passin env:KEY_PASS \
+    -passout env:KEY_PASS \
+    -name "$root_ca_alias" \
+    -in "$dest_dir/$CERT_PEM" -inkey "$dest_dir/$PRIVATE_KEY_PEM" \
+    -out "$dest_dir/$P12_STORE"
+
+### Now make a jks from the pkcs12 store. We'll use the jks in our ant build
+# to sign the cert.
+keytool -importkeystore \
+\
+    -srckeystore "$dest_dir/$P12_STORE" \
+    -srcstoretype pkcs12 \
+    -srcalias "$root_ca_alias" \
+    -srcstorepass "$KEY_PASS" \
+    -srckeypass "$KEY_PASS" \
+\
+    -destkeystore "$dest_dir/$CODE_SIGNING_JKS" \
+    -deststoretype jks \
+    -destalias "$root_ca_alias" \
+    -deststorepass "$KEYSTORE_PASS" \
+    -destkeypass "$KEY_PASS"
+
+### Reset the system time from the machine's hardware clock. This is only necessary if
+# we explicitly set a cert_start_date:
+if [ -n "$cert_start_date" ]; then
+    sudo /sbin/hwclock --hctosys
+fi
